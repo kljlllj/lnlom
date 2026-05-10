@@ -1,0 +1,740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Lab Notebook</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a1a; min-height: 100vh; }
+
+    /* header */
+    header { background: white; border-bottom: 1px solid #e5e5e0; padding: 0 2rem; display: flex; align-items: center; justify-content: space-between; height: 52px; }
+    header h1 { font-size: 17px; font-weight: 500; }
+    .status { display: flex; align-items: center; gap: 6px; font-size: 13px; color: #888; }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: #ccc; }
+    .dot.on { background: #4caf50; }
+
+    /* tabs */
+    .tabs { display: flex; gap: 0; border-bottom: 1px solid #e5e5e0; background: white; padding: 0 2rem; }
+    .tab { padding: 12px 18px; font-size: 14px; cursor: pointer; color: #888; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.15s; }
+    .tab:hover { color: #444; }
+    .tab.active { color: #4a7ef0; border-bottom-color: #4a7ef0; font-weight: 500; }
+
+    /* layout */
+    .main { max-width: 920px; margin: 0 auto; padding: 2rem 1rem; }
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* cards */
+    .card { background: white; border: 1px solid #e5e5e0; border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem; }
+    .card-title { font-size: 15px; font-weight: 500; margin-bottom: 1rem; color: #1a1a1a; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 12px; }
+    .field { display: flex; flex-direction: column; gap: 4px; }
+    .field label { font-size: 12px; color: #666; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+    .field input, .field textarea, .field select {
+      padding: 8px 10px; border: 1px solid #ddd; border-radius: 8px;
+      font-size: 14px; font-family: inherit; background: white; color: #1a1a1a;
+      outline: none; transition: border-color 0.15s;
+    }
+    .field input:focus, .field textarea:focus, .field select:focus { border-color: #4a7ef0; }
+    .field textarea { resize: vertical; min-height: 70px; }
+    .field select { cursor: pointer; }
+
+    /* project cards in list */
+    .proj-card {
+      background: white; border: 1px solid #e5e5e0; border-radius: 12px;
+      padding: 1.1rem 1.25rem; margin-bottom: 0.75rem;
+      display: flex; align-items: center; justify-content: space-between; gap: 1rem;
+      cursor: pointer; transition: border-color 0.15s;
+    }
+    .proj-card:hover { border-color: #4a7ef0; }
+    .proj-card.selected { border-color: #4a7ef0; background: #f5f8ff; }
+    .proj-name { font-size: 14px; font-weight: 500; }
+    .proj-meta { font-size: 12px; color: #888; margin-top: 2px; }
+    .proj-count { font-size: 12px; color: #888; white-space: nowrap; }
+    .proj-actions { display: flex; gap: 6px; }
+
+    /* experiment cards */
+    .exp-card {
+      background: white; border: 1px solid #e5e5e0; border-radius: 12px;
+      padding: 1.25rem; margin-bottom: 1rem;
+      display: grid; grid-template-columns: 1fr auto; gap: 1rem;
+    }
+    .exp-id { font-size: 15px; font-weight: 500; color: #1a1a1a; margin-bottom: 2px; }
+    .exp-date { font-size: 13px; color: #888; margin-bottom: 8px; }
+    .proj-badge { display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 20px; background: #eef3fd; color: #4a7ef0; border: 1px solid #c7d9fb; margin-bottom: 6px; }
+    .tags { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+    .tag { font-size: 11px; padding: 2px 8px; border-radius: 20px; background: #f0f0eb; color: #555; border: 1px solid #e5e5e0; }
+    .exp-notes { font-size: 13px; color: #666; line-height: 1.5; margin-bottom: 10px; }
+    .qr-col { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+    .qr-col img, .qr-col canvas { border-radius: 6px; }
+    .qr-id { font-size: 10px; color: #999; text-align: center; max-width: 90px; word-break: break-all; }
+
+    /* plate */
+    .section-label { font-size: 12px; font-weight: 500; color: #666; text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 8px; }
+    .plate-controls { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; flex-wrap: wrap; }
+    .plate-controls select { width: auto; padding: 6px 8px; }
+    .plate-controls button { padding: 5px 12px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 12px; cursor: pointer; color: #444; }
+    .plate-controls button:hover { background: #f5f5f0; }
+    .hint { font-size: 12px; color: #999; margin-bottom: 8px; }
+    .well-editor {
+      display: none; align-items: center; gap: 8px; margin-top: 10px;
+      background: #f9f9f7; border: 1px solid #e5e5e0; border-radius: 8px; padding: 8px 12px; flex-wrap: wrap;
+    }
+    .well-editor input[type=text] { flex: 1; min-width: 140px; padding: 6px 8px; border: 1px solid #ddd; border-radius: 6px; font-size: 13px; }
+    .well-editor button { padding: 5px 10px; border: 1px solid #ddd; border-radius: 6px; background: white; font-size: 12px; cursor: pointer; }
+    .well-editor .set-btn { background: #4a7ef0; color: white; border-color: #4a7ef0; }
+    .selection-info { font-size: 13px; color: #666; font-weight: 500; white-space: nowrap; }
+    .legend { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 10px; min-height: 20px; }
+    .legend-item { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #555; }
+    .legend-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .plate-wrap { overflow-x: auto; padding-bottom: 4px; }
+    .plate-outer { display: inline-block; user-select: none; }
+    .col-hdr { text-align: center; font-size: 9px; color: #999; }
+    .plate-row { display: flex; align-items: center; margin-bottom: 2px; }
+    .row-hdr { font-size: 9px; color: #999; text-align: right; margin-right: 3px; }
+    .well {
+      border: 1.5px solid #ddd; border-radius: 50%; display: flex; align-items: center;
+      justify-content: center; font-size: 8px; color: #bbb; cursor: crosshair;
+      background: white; user-select: none; transition: opacity 0.1s;
+    }
+    .well.drag-hover { opacity: 0.55; border-color: #4a7ef0 !important; }
+    .mini-plate { display: inline-grid; gap: 2px; }
+    .mini-well { border-radius: 50%; border: 1px solid #e5e5e0; }
+    .exp-legend { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .exp-legend-item { display: flex; align-items: center; gap: 4px; font-size: 11px; color: #555; }
+    .exp-legend-dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+
+    /* buttons */
+    .add-btn {
+      width: 100%; padding: 10px; background: #4a7ef0; color: white;
+      border: none; border-radius: 8px; font-size: 14px; font-weight: 500;
+      cursor: pointer; margin-top: 14px; transition: background 0.15s;
+    }
+    .add-btn:hover { background: #3a6ee0; }
+    .add-btn:disabled { background: #a0b4e8; cursor: not-allowed; }
+    .del-btn { background: none; border: none; color: #ccc; cursor: pointer; font-size: 15px; padding: 2px 6px; border-radius: 4px; }
+    .del-btn:hover { color: #e55; background: #fef0f0; }
+
+    .empty-state { text-align: center; padding: 3rem; color: #999; font-size: 14px; border: 1px dashed #ddd; border-radius: 12px; }
+    .loading-state { text-align: center; padding: 2rem; color: #999; font-size: 14px; }
+
+    /* project view header */
+    .proj-view-header { display: flex; align-items: center; gap: 10px; margin-bottom: 1.5rem; }
+    .back-btn { background: none; border: 1px solid #ddd; border-radius: 8px; padding: 5px 12px; font-size: 13px; cursor: pointer; color: #555; }
+    .back-btn:hover { background: #f5f5f0; }
+    .proj-view-name { font-size: 20px; font-weight: 500; }
+    .proj-view-date { font-size: 13px; color: #888; margin-left: auto; }
+
+    @media print {
+      header, .tabs, .card, .del-btn, .back-btn { display: none !important; }
+      .exp-card { break-inside: avoid; border: 1px solid #ccc; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>🧪 Lab notebook</h1>
+  <div class="status">
+    <div class="dot" id="dot"></div>
+    <span id="status-label">Connecting...</span>
+  </div>
+</header>
+
+<div class="tabs">
+  <div class="tab active" id="tab-projects" onclick="showTab('projects')">Projects</div>
+  <div class="tab" id="tab-experiments" onclick="showTab('experiments')">All experiments</div>
+</div>
+
+<div class="main">
+
+  <!-- PROJECTS PAGE -->
+  <div class="page active" id="page-projects">
+
+    <!-- new project form -->
+    <div class="card">
+      <div class="card-title">New project</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Project name</label>
+          <input type="text" id="proj-name" placeholder="e.g. FnBPA5 staining optimization">
+        </div>
+        <div class="field">
+          <label>Start date</label>
+          <input type="date" id="proj-date">
+        </div>
+      </div>
+      <button class="add-btn" id="proj-add-btn" onclick="addProject()">Create project</button>
+    </div>
+
+    <!-- project list -->
+    <div id="proj-list"><div class="loading-state">Loading projects...</div></div>
+
+    <!-- project detail view (experiments within a project) -->
+    <div id="proj-detail" style="display:none;">
+      <div class="proj-view-header">
+        <button class="back-btn" onclick="closeProjDetail()">← Back</button>
+        <div>
+          <div class="proj-view-name" id="proj-detail-name"></div>
+          <div style="font-size:13px;color:#888;" id="proj-detail-date"></div>
+        </div>
+        <div style="margin-left:auto;font-size:13px;color:#888;" id="proj-detail-count"></div>
+      </div>
+
+      <!-- new experiment form (inside project) -->
+      <div class="card">
+        <div class="card-title">Add experiment to this project</div>
+        <div class="form-grid">
+          <div class="field">
+            <label>Experiment ID / name</label>
+            <input type="text" id="pexp-id" placeholder="e.g. EXP-2026-001">
+          </div>
+          <div class="field">
+            <label>Date</label>
+            <input type="date" id="pexp-date">
+          </div>
+          <div class="field">
+            <label>Cell line</label>
+            <input type="text" id="pexp-cell" placeholder="e.g. HeLa, HEK293">
+          </div>
+          <div class="field">
+            <label>Conditions / treatment</label>
+            <input type="text" id="pexp-conditions" placeholder="e.g. 10 µM drug, 24h">
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:14px;">
+          <label>Notes</label>
+          <textarea id="pexp-notes" placeholder="Observations, protocol deviations, anything notable..."></textarea>
+        </div>
+        <div class="section-label">Plate map</div>
+        <div class="plate-controls">
+          <label style="font-size:13px;color:#666;">Format:</label>
+          <select id="pexp-format" onchange="buildPlate('p')">
+            <option value="24">24-well</option>
+            <option value="96">96-well</option>
+            <option value="6">6-well</option>
+            <option value="12">12-well</option>
+            <option value="48">48-well</option>
+          </select>
+          <button onclick="clearPlate('p')">Clear all</button>
+        </div>
+        <p class="hint">Click and drag across wells to select a group, then assign a label</p>
+        <div class="plate-wrap"><div id="pexp-plate-container"></div></div>
+        <div class="well-editor" id="pexp-well-editor">
+          <span class="selection-info" id="pexp-selection-info"></span>
+          <input type="text" id="pexp-well-input" placeholder="Group label (e.g. CTRL, Drug 10µM)" onkeydown="if(event.key==='Enter')confirmLabel('p')">
+          <button class="set-btn" onclick="confirmLabel('p')">Assign group</button>
+          <button onclick="clearSelected('p')">Clear wells</button>
+          <button onclick="cancelSelection('p')">Cancel</button>
+        </div>
+        <div class="legend" id="pexp-plate-legend"></div>
+        <button class="add-btn" id="pexp-add-btn" onclick="addExperiment('p')">Add experiment</button>
+      </div>
+
+      <div id="proj-exp-list"><div class="loading-state">Loading experiments...</div></div>
+    </div>
+  </div>
+
+  <!-- ALL EXPERIMENTS PAGE -->
+  <div class="page" id="page-experiments">
+
+    <div class="card">
+      <div class="card-title">New experiment</div>
+      <div class="form-grid">
+        <div class="field">
+          <label>Experiment ID / name</label>
+          <input type="text" id="exp-id" placeholder="e.g. EXP-2026-001">
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="exp-date">
+        </div>
+        <div class="field">
+          <label>Cell line</label>
+          <input type="text" id="exp-cell" placeholder="e.g. HeLa, HEK293">
+        </div>
+        <div class="field">
+          <label>Conditions / treatment</label>
+          <input type="text" id="exp-conditions" placeholder="e.g. 10 µM drug, 24h">
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:12px;">
+        <label>Project</label>
+        <select id="exp-project">
+          <option value="">— No project —</option>
+        </select>
+      </div>
+      <div class="field" style="margin-bottom:14px;">
+        <label>Notes</label>
+        <textarea id="exp-notes" placeholder="Observations, protocol deviations, anything notable..."></textarea>
+      </div>
+      <div class="section-label">Plate map</div>
+      <div class="plate-controls">
+        <label style="font-size:13px;color:#666;">Format:</label>
+        <select id="exp-format" onchange="buildPlate('e')">
+          <option value="24">24-well</option>
+          <option value="96">96-well</option>
+          <option value="6">6-well</option>
+          <option value="12">12-well</option>
+          <option value="48">48-well</option>
+        </select>
+        <button onclick="clearPlate('e')">Clear all</button>
+      </div>
+      <p class="hint">Click and drag across wells to select a group, then assign a label</p>
+      <div class="plate-wrap"><div id="exp-plate-container"></div></div>
+      <div class="well-editor" id="exp-well-editor">
+        <span class="selection-info" id="exp-selection-info"></span>
+        <input type="text" id="exp-well-input" placeholder="Group label (e.g. CTRL, Drug 10µM)" onkeydown="if(event.key==='Enter')confirmLabel('e')">
+        <button class="set-btn" onclick="confirmLabel('e')">Assign group</button>
+        <button onclick="clearSelected('e')">Clear wells</button>
+        <button onclick="cancelSelection('e')">Cancel</button>
+      </div>
+      <div class="legend" id="exp-plate-legend"></div>
+      <button class="add-btn" id="exp-add-btn" onclick="addExperiment('e')">Add experiment</button>
+    </div>
+
+    <div id="exp-list"><div class="loading-state">Loading experiments...</div></div>
+  </div>
+
+</div>
+
+<!-- Firebase module -->
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-app.js";
+  import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/12.13.0/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyBlrc6E6uJaxV9luPcmw62DseFW0_1gzjk",
+    authDomain: "lab-notebook-d4953.firebaseapp.com",
+    databaseURL: "https://lab-notebook-d4953-default-rtdb.firebaseio.com",
+    projectId: "lab-notebook-d4953",
+    storageBucket: "lab-notebook-d4953.firebasestorage.app",
+    messagingSenderId: "474061527394",
+    appId: "1:474061527394:web:894ce14f937f92b8ed343b"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // connection status
+  onValue(ref(db, '.info/connected'), snap => {
+    const ok = snap.val();
+    document.getElementById('dot').className = 'dot' + (ok ? ' on' : '');
+    document.getElementById('status-label').textContent = ok ? 'Connected' : 'Offline';
+  });
+
+  // projects
+  onValue(ref(db, 'projects'), snap => {
+    const data = snap.val();
+    window._projects = data
+      ? Object.entries(data).map(([k,v]) => ({...v, _key:k}))
+      : [];
+    window.renderProjects(window._projects);
+    window.updateProjectDropdown(window._projects);
+  });
+
+  // experiments
+  onValue(ref(db, 'experiments'), snap => {
+    const data = snap.val();
+    window._experiments = data
+      ? Object.entries(data).map(([k,v]) => ({...v, _key:k})).reverse()
+      : [];
+    window.renderExperiments(window._experiments);
+    if (window._currentProjectKey) window.renderProjectExperiments(window._currentProjectKey);
+  });
+
+  window.fbSaveProject  = p  => push(ref(db, 'projects'), p);
+  window.fbSaveExp      = e  => push(ref(db, 'experiments'), e);
+  window.fbDeleteProject = k => { if(confirm('Delete this project? Experiments will not be deleted.')) remove(ref(db,'projects/'+k)); };
+  window.fbDeleteExp     = k => { if(confirm('Delete this experiment?')) remove(ref(db,'experiments/'+k)); };
+</script>
+
+<script>
+  const ROW_LABELS = 'ABCDEFGH';
+  const PLATE_CONFIGS = { 6:{rows:2,cols:3}, 12:{rows:3,cols:4}, 24:{rows:4,cols:6}, 48:{rows:6,cols:8}, 96:{rows:8,cols:12} };
+  const COLORS = [
+    {bg:'#dbeafe',border:'#3b82f6',text:'#1d4ed8',dot:'#3b82f6'},
+    {bg:'#dcfce7',border:'#22c55e',text:'#15803d',dot:'#22c55e'},
+    {bg:'#fef3c7',border:'#f59e0b',text:'#92400e',dot:'#f59e0b'},
+    {bg:'#fce7f3',border:'#ec4899',text:'#9d174d',dot:'#ec4899'},
+    {bg:'#ede9fe',border:'#8b5cf6',text:'#5b21b6',dot:'#8b5cf6'},
+    {bg:'#ffedd5',border:'#f97316',text:'#9a3412',dot:'#f97316'},
+    {bg:'#cffafe',border:'#06b6d4',text:'#155e75',dot:'#06b6d4'},
+    {bg:'#fef2f2',border:'#ef4444',text:'#991b1b',dot:'#ef4444'},
+  ];
+
+  // per-plate state keyed by scope ('e' = all-experiments tab, 'p' = project tab)
+  const plateState = {
+    e: { wellGroups:{}, labelMap:{}, nextIdx:0, isDragging:false, dragStart:null, dragEnd:null, selected:new Set() },
+    p: { wellGroups:{}, labelMap:{}, nextIdx:0, isDragging:false, dragStart:null, dragEnd:null, selected:new Set() },
+  };
+
+  window._projects = [];
+  window._experiments = [];
+  window._currentProjectKey = null;
+
+  // ── TABS ──────────────────────────────────────────────────────────────────
+  function showTab(tab) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+    document.getElementById('tab-' + tab).classList.add('active');
+    document.getElementById('page-' + tab).classList.add('active');
+  }
+
+  // ── PROJECTS ──────────────────────────────────────────────────────────────
+  function addProject() {
+    const name = document.getElementById('proj-name').value.trim();
+    if (!name) { alert('Please enter a project name.'); return; }
+    const btn = document.getElementById('proj-add-btn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+    window.fbSaveProject({ name, startDate: document.getElementById('proj-date').value, createdAt: Date.now() });
+    document.getElementById('proj-name').value = '';
+    document.getElementById('proj-date').value = todayStr();
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Create project'; }, 800);
+  }
+
+  window.renderProjects = function(projects) {
+    const container = document.getElementById('proj-list');
+    if (!projects.length) {
+      container.innerHTML = '<div class="empty-state">No projects yet — create one above</div>';
+      return;
+    }
+    const sorted = [...projects].sort((a,b) => (b.createdAt||0) - (a.createdAt||0));
+    container.innerHTML = sorted.map(p => {
+      const expCount = (window._experiments||[]).filter(e => e.projectKey === p._key).length;
+      return `<div class="proj-card" onclick="openProjDetail('${p._key}')">
+        <div>
+          <div class="proj-name">${p.name}</div>
+          <div class="proj-meta">${p.startDate ? 'Started ' + formatDate(p.startDate) : ''}</div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;">
+          <span class="proj-count">${expCount} experiment${expCount!==1?'s':''}</span>
+          <button class="del-btn" onclick="event.stopPropagation();window.fbDeleteProject('${p._key}')" title="Delete project">✕</button>
+        </div>
+      </div>`;
+    }).join('');
+  };
+
+  window.updateProjectDropdown = function(projects) {
+    const sel = document.getElementById('exp-project');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">— No project —</option>' +
+      projects.map(p => `<option value="${p._key}" ${p._key===cur?'selected':''}>${p.name}</option>`).join('');
+  };
+
+  function openProjDetail(key) {
+    window._currentProjectKey = key;
+    const proj = window._projects.find(p => p._key === key);
+    if (!proj) return;
+    document.getElementById('proj-list').style.display = 'none';
+    document.getElementById('proj-detail').style.display = 'block';
+    document.getElementById('proj-detail-name').textContent = proj.name;
+    document.getElementById('proj-detail-date').textContent = proj.startDate ? 'Started ' + formatDate(proj.startDate) : '';
+    document.querySelector('.card').style.display = 'none'; // hide new-project form
+    buildPlate('p');
+    window.renderProjectExperiments(key);
+  }
+
+  function closeProjDetail() {
+    window._currentProjectKey = null;
+    document.getElementById('proj-list').style.display = 'block';
+    document.getElementById('proj-detail').style.display = 'none';
+    document.querySelector('.card').style.display = 'block';
+  }
+
+  window.renderProjectExperiments = function(key) {
+    const exps = (window._experiments||[]).filter(e => e.projectKey === key);
+    const container = document.getElementById('proj-exp-list');
+    renderExpCards(exps, container, false);
+  };
+
+  // ── ALL EXPERIMENTS ───────────────────────────────────────────────────────
+  window.renderExperiments = function(experiments) {
+    renderExpCards(experiments, document.getElementById('exp-list'), true);
+  };
+
+  function renderExpCards(experiments, container, showProject) {
+    if (!experiments.length) {
+      container.innerHTML = '<div class="empty-state">No experiments yet</div>';
+      return;
+    }
+    container.innerHTML = experiments.map(exp => {
+      const proj = showProject && exp.projectKey
+        ? (window._projects||[]).find(p => p._key === exp.projectKey)
+        : null;
+      return `<div class="exp-card">
+        <div>
+          <button class="del-btn" onclick="window.fbDeleteExp('${exp._key}')" title="Delete" style="float:right;">✕</button>
+          <div class="exp-id">${exp.id}</div>
+          <div class="exp-date">${exp.date ? formatDate(exp.date) : ''}</div>
+          ${proj ? `<div><span class="proj-badge">${proj.name}</span></div>` : ''}
+          <div class="tags">
+            ${exp.cell ? `<span class="tag">${exp.cell}</span>` : ''}
+            ${exp.conditions ? `<span class="tag">${exp.conditions}</span>` : ''}
+            <span class="tag">${exp.format}-well</span>
+          </div>
+          ${exp.notes ? `<div class="exp-notes">${exp.notes}</div>` : ''}
+          <div style="margin-top:10px;">${miniPlate(exp)}</div>
+          ${expLegend(exp.wells)}
+        </div>
+        <div class="qr-col">
+          <div id="qr-${exp._key}" style="width:90px;height:90px;"></div>
+          <div class="qr-id">${exp.id}</div>
+        </div>
+      </div>`;
+    }).join('');
+
+    experiments.forEach(exp => {
+      const el = document.getElementById('qr-' + exp._key);
+      if (el && !el.hasChildNodes()) {
+        new QRCode(el, { text: [exp.id,exp.date,exp.cell,exp.conditions].filter(Boolean).join(' | '), width:90, height:90, correctLevel:QRCode.CorrectLevel.M });
+      }
+    });
+  }
+
+  function addExperiment(scope) {
+    const prefix = scope === 'p' ? 'pexp' : 'exp';
+    const id = document.getElementById(prefix+'-id').value.trim();
+    if (!id) { alert('Please enter an experiment ID.'); return; }
+
+    const projectKey = scope === 'p'
+      ? window._currentProjectKey
+      : (document.getElementById('exp-project').value || null);
+
+    const btn = document.getElementById(prefix+'-add-btn');
+    btn.disabled = true; btn.textContent = 'Saving...';
+
+    window.fbSaveExp({
+      id,
+      date: document.getElementById(prefix+'-date').value,
+      cell: document.getElementById(prefix+'-cell').value.trim(),
+      conditions: document.getElementById(prefix+'-conditions').value.trim(),
+      notes: document.getElementById(prefix+'-notes').value.trim(),
+      format: parseInt(document.getElementById(prefix+'-format').value),
+      wells: JSON.parse(JSON.stringify(plateState[scope].wellGroups)),
+      projectKey: projectKey || null,
+      createdAt: Date.now(),
+    });
+
+    [prefix+'-id', prefix+'-cell', prefix+'-conditions', prefix+'-notes'].forEach(fid => {
+      document.getElementById(fid).value = '';
+    });
+    document.getElementById(prefix+'-date').value = todayStr();
+    clearPlate(scope);
+
+    setTimeout(() => { btn.disabled = false; btn.textContent = 'Add experiment'; }, 800);
+  }
+
+  // ── PLATE ─────────────────────────────────────────────────────────────────
+  function getContainerId(scope) {
+    return scope === 'p' ? 'pexp-plate-container' : 'exp-plate-container';
+  }
+  function getFormatId(scope) {
+    return scope === 'p' ? 'pexp-format' : 'exp-format';
+  }
+
+  function buildPlate(scope) {
+    const s = plateState[scope];
+    s.wellGroups = {}; s.labelMap = {}; s.nextIdx = 0;
+    s.selected = new Set(); s.isDragging = false; s.dragStart = null; s.dragEnd = null;
+    document.getElementById((scope==='p'?'pexp':'exp')+'-well-editor').style.display = 'none';
+    document.getElementById((scope==='p'?'pexp':'exp')+'-plate-legend').innerHTML = '';
+
+    const format = parseInt(document.getElementById(getFormatId(scope)).value);
+    const { rows, cols } = PLATE_CONFIGS[format];
+    const ws = format===96?22:format===48?28:36;
+    const fs = format===96?7:9;
+    const rw = 16;
+    const cid = getContainerId(scope);
+
+    let html = `<div class="plate-outer" id="po-${scope}">`;
+    html += `<div style="display:flex;margin-bottom:2px;padding-left:${rw+3}px;">`;
+    for (let c=0;c<cols;c++) html+=`<div class="col-hdr" style="width:${ws}px;margin-right:2px;">${c+1}</div>`;
+    html += '</div>';
+    for (let r=0;r<rows;r++) {
+      html += '<div class="plate-row">';
+      html += `<div class="row-hdr" style="width:${rw}px;">${ROW_LABELS[r]}</div>`;
+      for (let c=0;c<cols;c++) {
+        const wid=`${ROW_LABELS[r]}${c+1}`;
+        html+=`<div class="well" id="${scope}-w-${wid}" data-r="${r}" data-c="${c}" data-wid="${wid}" style="width:${ws}px;height:${ws}px;font-size:${fs}px;margin-right:2px;" title="${wid}">${wid}</div>`;
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    document.getElementById(cid).innerHTML = html;
+
+    const outer = document.getElementById('po-'+scope);
+    outer.addEventListener('mousedown', e => onMouseDown(e, scope));
+    outer.addEventListener('mouseover', e => onMouseOver(e, scope));
+    document.addEventListener('mouseup', e => onMouseUp(e, scope));
+  }
+
+  function wellsInRect(r1,c1,r2,c2,scope) {
+    const format = parseInt(document.getElementById(getFormatId(scope)).value);
+    const {rows,cols} = PLATE_CONFIGS[format];
+    const minR=Math.min(r1,r2),maxR=Math.min(Math.max(r1,r2),rows-1);
+    const minC=Math.min(c1,c2),maxC=Math.min(Math.max(c1,c2),cols-1);
+    const res=[];
+    for(let r=minR;r<=maxR;r++) for(let c=minC;c<=maxC;c++) res.push(`${ROW_LABELS[r]}${c+1}`);
+    return res;
+  }
+
+  function highlightDrag(scope) {
+    document.querySelectorAll(`.well.drag-hover`).forEach(el=>el.classList.remove('drag-hover'));
+    const s=plateState[scope];
+    if(!s.isDragging||!s.dragStart||!s.dragEnd) return;
+    wellsInRect(s.dragStart.r,s.dragStart.c,s.dragEnd.r,s.dragEnd.c,scope).forEach(wid=>{
+      const el=document.getElementById(scope+'-w-'+wid);
+      if(el) el.classList.add('drag-hover');
+    });
+  }
+
+  function onMouseDown(e,scope) {
+    const well=e.target.closest('.well');
+    if(!well) return;
+    e.preventDefault();
+    const s=plateState[scope];
+    s.isDragging=true;
+    s.dragStart={r:+well.dataset.r,c:+well.dataset.c};
+    s.dragEnd={...s.dragStart};
+    highlightDrag(scope);
+  }
+
+  function onMouseOver(e,scope) {
+    const s=plateState[scope];
+    if(!s.isDragging) return;
+    const well=e.target.closest('.well');
+    if(!well) return;
+    s.dragEnd={r:+well.dataset.r,c:+well.dataset.c};
+    highlightDrag(scope);
+  }
+
+  function onMouseUp(e,scope) {
+    const s=plateState[scope];
+    if(!s.isDragging) return;
+    s.isDragging=false;
+    document.querySelectorAll('.well.drag-hover').forEach(el=>el.classList.remove('drag-hover'));
+    if(!s.dragStart||!s.dragEnd) return;
+    const wids=wellsInRect(s.dragStart.r,s.dragStart.c,s.dragEnd.r,s.dragEnd.c,scope);
+    if(!wids.length) return;
+    s.selected=new Set(wids);
+    const pre=scope==='p'?'pexp':'exp';
+    const editor=document.getElementById(pre+'-well-editor');
+    editor.style.display='flex';
+    document.getElementById(pre+'-selection-info').textContent=
+      wids.length===1?wids[0]:`${wids[0]} → ${wids[wids.length-1]} (${wids.length} wells)`;
+    const labels=[...new Set(wids.map(w=>(s.wellGroups[w]||{}).label).filter(Boolean))];
+    const inp=document.getElementById(pre+'-well-input');
+    inp.value=labels.length===1?labels[0]:'';
+    inp.focus();
+  }
+
+  function getColor(label,scope) {
+    const s=plateState[scope];
+    if(!(label in s.labelMap)) { s.labelMap[label]=s.nextIdx++%COLORS.length; }
+    return COLORS[s.labelMap[label]];
+  }
+
+  function confirmLabel(scope) {
+    const pre=scope==='p'?'pexp':'exp';
+    const val=document.getElementById(pre+'-well-input').value.trim();
+    if(!val){alert('Please enter a group label.');return;}
+    const s=plateState[scope];
+    const color=getColor(val,scope);
+    s.selected.forEach(wid=>{
+      s.wellGroups[wid]={label:val,colorIdx:s.labelMap[val]};
+      const el=document.getElementById(scope+'-w-'+wid);
+      if(el){
+        el.style.cssText+=`;background:${color.bg};border-color:${color.border};color:${color.text};font-weight:600;`;
+        el.textContent=val.length>5?val.slice(0,4)+'…':val;
+        el.title=wid+': '+val;
+      }
+    });
+    updateLegend(scope);
+    cancelSelection(scope);
+  }
+
+  function clearSelected(scope) {
+    const s=plateState[scope];
+    s.selected.forEach(wid=>{
+      delete s.wellGroups[wid];
+      const el=document.getElementById(scope+'-w-'+wid);
+      if(el){el.style.cssText='';el.textContent=wid;el.title=wid;}
+    });
+    const used=new Set(Object.values(s.wellGroups).map(g=>g.label));
+    Object.keys(s.labelMap).forEach(l=>{if(!used.has(l))delete s.labelMap[l];});
+    updateLegend(scope);
+    cancelSelection(scope);
+  }
+
+  function cancelSelection(scope) {
+    const s=plateState[scope];
+    s.selected=new Set();s.dragStart=null;s.dragEnd=null;
+    const pre=scope==='p'?'pexp':'exp';
+    document.getElementById(pre+'-well-editor').style.display='none';
+    document.getElementById(pre+'-well-input').value='';
+  }
+
+  function clearPlate(scope){buildPlate(scope);}
+
+  function updateLegend(scope) {
+    const s=plateState[scope];
+    const used=[...new Set(Object.values(s.wellGroups).map(g=>g.label))];
+    const pre=scope==='p'?'pexp':'exp';
+    document.getElementById(pre+'-plate-legend').innerHTML=used.map(label=>{
+      const color=getColor(label,scope);
+      const count=Object.values(s.wellGroups).filter(g=>g.label===label).length;
+      return `<div class="legend-item"><div class="legend-dot" style="background:${color.dot};"></div><span>${label} <span style="color:#aaa;">(n=${count})</span></span></div>`;
+    }).join('');
+  }
+
+  // ── RENDERING HELPERS ─────────────────────────────────────────────────────
+  function buildColorMap(wells) {
+    const map={};let idx=0;
+    Object.values(wells||{}).forEach(g=>{if(g&&g.label&&!(g.label in map))map[g.label]=COLORS[idx++%COLORS.length];});
+    return map;
+  }
+
+  function miniPlate(exp) {
+    const {rows,cols}=PLATE_CONFIGS[exp.format]||PLATE_CONFIGS[24];
+    const size=exp.format===96?8:exp.format===48?10:13;
+    const wells=exp.wells||{};
+    const cm=buildColorMap(wells);
+    let html=`<div class="mini-plate" style="grid-template-columns:repeat(${cols},${size}px);">`;
+    for(let r=0;r<rows;r++) for(let c=0;c<cols;c++){
+      const wid=`${ROW_LABELS[r]}${c+1}`;
+      const g=wells[wid];
+      const color=g&&g.label?cm[g.label]:null;
+      const style=color?`background:${color.bg};border-color:${color.border};`:'background:#f0f0eb;border-color:#e5e5e0;';
+      html+=`<div class="mini-well" style="width:${size}px;height:${size}px;${style}" title="${wid}${g?': '+g.label:''}"></div>`;
+    }
+    return html+'</div>';
+  }
+
+  function expLegend(wells) {
+    if(!wells||!Object.keys(wells).length) return '';
+    const counts={};
+    Object.values(wells).forEach(g=>{if(g&&g.label)counts[g.label]=(counts[g.label]||0)+1;});
+    const labels=Object.keys(counts);
+    if(!labels.length) return '';
+    const cm=buildColorMap(wells);
+    return '<div class="exp-legend">'+labels.map(l=>
+      `<div class="exp-legend-item"><div class="exp-legend-dot" style="background:${cm[l].dot};"></div><span>${l} <span style="color:#aaa;">(n=${counts[l]})</span></span></div>`
+    ).join('')+'</div>';
+  }
+
+  function formatDate(d){if(!d)return '';const[y,m,day]=d.split('-');return `${day}/${m}/${y}`;}
+  function todayStr(){return new Date().toISOString().split('T')[0];}
+
+  // ── INIT ──────────────────────────────────────────────────────────────────
+  document.getElementById('proj-date').value = todayStr();
+  document.getElementById('pexp-date').value = todayStr();
+  document.getElementById('exp-date').value  = todayStr();
+  buildPlate('e');
+</script>
+
+</body>
+</html>
